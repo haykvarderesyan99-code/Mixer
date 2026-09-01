@@ -1,0 +1,15 @@
+{
+  "name": "mixer-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently --kill-others-on-fail --names backend,frontend \"npm run backend:dev\" \"npm --prefix frontend run dev\"",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint",
+    "backend:dev": "npm --prefix backend run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}

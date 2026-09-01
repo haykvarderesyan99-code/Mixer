@@ -1,0 +1,269 @@
+paths:
+    /auth/signup:
+        post:
+            tags: [Auth]
+            summary: Create a new user account
+            description: Creates a user account with username and password.
+            security: [] # public
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/SignupRequest"
+            responses:
+                "201":
+                    description: Account created
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                created:
+                                    value:
+                                        message: "john_doe has signed up successfully!"
+                "400":
+                    description: Validation error (missing fields, invalid formats, already used username)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                missing:
+                                    value:
+                                        message: "Missing/Invalid credentials..."
+                                bad_firstname:
+                                    value:
+                                        message: "First name must be 2-18 letters."
+                                bad_lastname:
+                                    value:
+                                        message: "Last name must be 2-18 letters."
+                                bad_username:
+                                    value:
+                                        message: "Username must be 3-18 characters and use only letters, numbers, or underscores."
+                                bad_password:
+                                    value:
+                                        message: "Password must be 8-18 characters and include both letters and numbers."
+                                username_in_use:
+                                    value:
+                                        message: "Username is already in use..."
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+    /auth/signin:
+        post:
+            tags: [Auth]
+            summary: Sign in
+            description: |
+                Validates username and password credentials.
+                Returns a JWT token and a suggested frontend redirect endpoint.
+            security: [] # public
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/SigninRequest"
+            responses:
+                "200":
+                    description: Sign-in accepted (token issued; OTP may have been sent depending on account status)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/SigninResponse"
+                            examples:
+                                ok_verified:
+                                    value:
+                                        message: "Signed in successfully!"
+                                        token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                                        endpoint: "/profile"
+                "400":
+                    description: Invalid credentials or wrong password/username
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                missing:
+                                    value:
+                                        message: "Invalid/Missing credentials!"
+                                wrong:
+                                    value:
+                                        message: "Wrong Credentials..."
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+    /auth/user:
+        get:
+            tags: [Auth]
+            summary: Get current authenticated user
+            description: Returns the authenticated user's profile (SAFE_USER fields) including followings, followers, and posts.
+            security:
+                - bearerAuth: []
+            responses:
+                "200":
+                    description: Current user returned
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    user:
+                                        $ref: "#/components/schemas/UserProfile"
+                                required: [user]
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+components:
+    schemas:
+        MessageResponse:
+            type: object
+            properties:
+                message:
+                    type: string
+            required: [message]
+
+        SignupRequest:
+            type: object
+            properties:
+                firstName:
+                    type: string
+                    example: "John"
+                lastName:
+                    type: string
+                    example: "Doe"
+                username:
+                    type: string
+                    example: "john_doe"
+                password:
+                    type: string
+                    description: "8-18 chars, must include letters and numbers"
+                    example: "Password123"
+            required: [firstName, lastName, username, password]
+
+        SigninRequest:
+            type: object
+            properties:
+                username:
+                    type: string
+                    example: "john_doe"
+                password:
+                    type: string
+                    example: "Password123"
+            required: [username, password]
+
+        SigninResponse:
+            type: object
+            properties:
+                message:
+                    type: string
+                token:
+                    type: string
+                    description: JWT token (expires in 1h per JWTService)
+                endpoint:
+                    type: string
+                    description: Suggested frontend redirect path
+            required: [message, token, endpoint]
+
+        UserSafe:
+            type: object
+            description: Safe user fields (based on SAFE_USER constant in your codebase).
+            properties:
+                id:
+                    type: integer
+                    example: 113
+                username:
+                    type: string
+                    example: "avagyanhovsep"
+                firstName:
+                    type: string
+                    example: "Hovsep"
+                lastName:
+                    type: string
+                    example: "Avagyan"
+                avatar:
+                    type: string
+                    nullable: true
+                    example: "1735321123456-avatar.png"
+                bio:
+                    type: string
+                    nullable: true
+                    example: "Building Lyncora."
+                theme:
+                    type: string
+                    nullable: false
+                    example: "system"
+                isAccountPrivate:
+                    type: boolean
+                    example: false
+
+        UserProfile:
+            allOf:
+                - $ref: "#/components/schemas/UserSafe"
+                - type: object
+                  properties:
+                      followings:
+                          type: array
+                          items:
+                              type: object
+                              properties:
+                                  receiver:
+                                      $ref: "#/components/schemas/UserSafe"
+                      followers:
+                          type: array
+                          items:
+                              type: object
+                              properties:
+                                  sender:
+                                      $ref: "#/components/schemas/UserSafe"
+                      posts:
+                          type: array
+                          items:
+                              type: object
+                              description: Post schema placeholder (replace with your actual Post schema if defined elsewhere).
+                              properties:
+                                  id:
+                                      type: integer
+                                  text:
+                                      type: string
+                                  createdAt:
+                                      type: string
+                                      format: date-time
+
+    responses:
+        Unauthorized:
+            description: Missing/invalid auth token
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/MessageResponse"
+                    examples:
+                        unauthorized:
+                            value:
+                                message: "Unauthorized"
+
+        Forbidden:
+            description: Authenticated but not allowed
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/MessageResponse"
+                    examples:
+                        forbidden:
+                            value:
+                                message: "Forbidden"
+
+        InternalServerError:
+            description: Server error
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/MessageResponse"
+                    examples:
+                        error:
+                            value:
+                                message: "Internal server error"

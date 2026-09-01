@@ -1,0 +1,362 @@
+paths:
+    /posts:
+        post:
+            tags: [Post]
+            summary: Create a new post with optional image
+            description: Creates a new post for the authenticated user with title, description, location, tags, and an optional image file.
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            properties:
+                                title:
+                                    type: string
+                                    description: Post title
+                                    example: "My first post"
+                                description:
+                                    type: string
+                                    description: Post description
+                                    example: "Some description about my post"
+                                location:
+                                    type: string
+                                    description: Post location
+                                    example: "Glendale, CA"
+                                tags:
+                                    type: string
+                                    description: JSON stringified array of tags
+                                    example: '["travel", "food"]'
+                                image:
+                                    type: string
+                                    format: binary
+                                    description: Optional post image file
+                            required: [title, description]
+            responses:
+                "201":
+                    description: Post created
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    postInfo:
+                                        $ref: "#/components/schemas/Post_Row"
+                                required: [postInfo]
+                "400":
+                    description: Invalid payload
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "../../docs/openapi.yaml#/components/schemas/ErrorResponse"
+                "401":
+                    $ref: "../../docs/openapi.yaml#/components/responses/Unauthorized"
+                "403":
+                    $ref: "../../docs/openapi.yaml#/components/responses/Forbidden"
+                "500":
+                    $ref: "../../docs/openapi.yaml#/components/responses/InternalServerError"
+
+    /posts/{postId}:
+        get:
+            tags: [Post]
+            summary: Get post info
+            description: Returns a post with author, comments (and their reactions), and post reactions.
+            security:
+                - bearerAuth: []
+            parameters:
+                - in: path
+                  name: postId
+                  required: true
+                  schema:
+                      type: integer
+                  example: 123
+            responses:
+                "200":
+                    description: Post returned
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    postInfo:
+                                        $ref: "#/components/schemas/Post_Info"
+                                required: [postInfo]
+                "401":
+                    $ref: "../../docs/openapi.yaml#/components/responses/Unauthorized"
+                "403":
+                    $ref: "../../docs/openapi.yaml#/components/responses/Forbidden"
+                "404":
+                    description: Post not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "../../docs/openapi.yaml#/components/schemas/ErrorResponse"
+                            examples:
+                                not_found:
+                                    value:
+                                        message: "Post not found"
+                "500":
+                    $ref: "../../docs/openapi.yaml#/components/responses/InternalServerError"
+
+        delete:
+            tags: [Post]
+            summary: Delete a post
+            description: Deletes a post owned by the authenticated user.
+            security:
+                - bearerAuth: []
+            parameters:
+                - in: path
+                  name: postId
+                  required: true
+                  schema:
+                      type: integer
+                  example: 123
+            responses:
+                "200":
+                    description: Post deleted
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "../../docs/openapi.yaml#/components/schemas/MessageResponse"
+                            examples:
+                                deleted:
+                                    value:
+                                        message: "Post deleted successfully"
+                "401":
+                    $ref: "../../docs/openapi.yaml#/components/responses/Unauthorized"
+                "403":
+                    $ref: "../../docs/openapi.yaml#/components/responses/Forbidden"
+                "404":
+                    description: Post not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "../../docs/openapi.yaml#/components/schemas/ErrorResponse"
+                            examples:
+                                not_found:
+                                    value:
+                                        message: "Post not found"
+                "500":
+                    $ref: "../../docs/openapi.yaml#/components/responses/InternalServerError"
+
+    /posts/{postId}/likes:
+        post:
+            tags: [Post]
+            summary: Toggle like on a post
+            description: |
+                Toggles the authenticated user's reaction on a post.
+                - If already liked: removes like and returns { reactionStatus: false }
+                - If not liked: creates like and returns { reactionStatus: true, reaction }
+            security:
+                - bearerAuth: []
+            parameters:
+                - in: path
+                  name: postId
+                  required: true
+                  schema:
+                      type: integer
+                  example: 123
+            responses:
+                "200":
+                    description: Like toggled
+                    content:
+                        application/json:
+                            schema:
+                                oneOf:
+                                    - $ref: "#/components/schemas/Post_UnlikeResponse"
+                                    - $ref: "#/components/schemas/Post_LikeResponse"
+                            examples:
+                                liked:
+                                    value:
+                                        reactionStatus: true
+                                        reaction:
+                                            id: 77
+                                            postId: 123
+                                            userId: 113
+                                            reactedBy:
+                                                id: 113
+                                                username: "avagyanhovsep"
+                                                firstName: "Hovsep"
+                                                lastName: "Avagyan"
+                                unliked:
+                                    value:
+                                        reactionStatus: false
+                "401":
+                    $ref: "../../docs/openapi.yaml#/components/responses/Unauthorized"
+                "403":
+                    $ref: "../../docs/openapi.yaml#/components/responses/Forbidden"
+                "500":
+                    $ref: "../../docs/openapi.yaml#/components/responses/InternalServerError"
+
+        get:
+            tags: [Post]
+            summary: Get all likes for a post
+            description: Returns all reactions for a post (current implementation returns reaction rows; no user include).
+            security:
+                - bearerAuth: []
+            parameters:
+                - in: path
+                  name: postId
+                  required: true
+                  schema:
+                      type: integer
+                  example: 123
+            responses:
+                "200":
+                    description: Reactions returned
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    reactions:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/Post_ReactionRow"
+                                required: [reactions]
+                "401":
+                    $ref: "../../docs/openapi.yaml#/components/responses/Unauthorized"
+                "403":
+                    $ref: "../../docs/openapi.yaml#/components/responses/Forbidden"
+                "500":
+                    $ref: "../../docs/openapi.yaml#/components/responses/InternalServerError"
+
+components:
+    schemas:
+        Post_CreatePostRequest:
+            type: object
+            description: Deprecated - Use multipart/form-data directly on POST /posts
+            properties:
+                title:
+                    type: string
+                    example: "My first post"
+                description:
+                    type: string
+                    example: "Some description"
+                location:
+                    type: string
+                    example: "Glendale, CA"
+                tags:
+                    type: array
+                    items:
+                        type: string
+                    example: ["travel", "food"]
+                image:
+                    type: string
+                    format: binary
+            required: [title, description]
+
+        Post_Row:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    example: 123
+                authorId:
+                    type: integer
+                    example: 113
+                title:
+                    type: string
+                    example: "My first post"
+                description:
+                    type: string
+                    example: "Some description"
+                postImage:
+                    type: string
+                    example: "1735321123456-post.png"
+                tags:
+                    type: array
+                    items:
+                        type: string
+                    example: ["travel", "food"]
+                location:
+                    type: string
+                    example: "Glendale, CA"
+
+        Post_Info:
+            allOf:
+                - $ref: "#/components/schemas/Post_Row"
+                - type: object
+                  properties:
+                      author:
+                          $ref: "../../docs/openapi.yaml#/components/schemas/UserSafe"
+                      postComments:
+                          type: array
+                          items:
+                              $ref: "#/components/schemas/Post_Comment"
+                      postReactions:
+                          type: array
+                          items:
+                              $ref: "#/components/schemas/Post_ReactionWithUser"
+
+        Post_Comment:
+            type: object
+            properties:
+                id:
+                    type: integer
+                postId:
+                    type: integer
+                userId:
+                    type: integer
+                text:
+                    type: string
+                user:
+                    $ref: "../../docs/openapi.yaml#/components/schemas/UserSafe"
+                reactions:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/Post_CommentReactionWithUser"
+
+        Post_CommentReactionWithUser:
+            type: object
+            properties:
+                id:
+                    type: integer
+                commentId:
+                    type: integer
+                userId:
+                    type: integer
+                user:
+                    $ref: "../../docs/openapi.yaml#/components/schemas/UserSafe"
+
+        Post_ReactionRow:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    example: 77
+                postId:
+                    type: integer
+                    example: 123
+                userId:
+                    type: integer
+                    example: 113
+            required: [id, postId, userId]
+
+        Post_ReactionWithUser:
+            allOf:
+                - $ref: "#/components/schemas/Post_ReactionRow"
+                - type: object
+                  properties:
+                      reactedBy:
+                          $ref: "../../docs/openapi.yaml#/components/schemas/UserSafe"
+
+        Post_LikeResponse:
+            type: object
+            properties:
+                reactionStatus:
+                    type: boolean
+                    example: true
+                reaction:
+                    $ref: "#/components/schemas/Post_ReactionWithUser"
+            required: [reactionStatus, reaction]
+
+        Post_UnlikeResponse:
+            type: object
+            properties:
+                reactionStatus:
+                    type: boolean
+                    example: false
+            required: [reactionStatus]

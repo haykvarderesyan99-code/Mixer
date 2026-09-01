@@ -1,0 +1,190 @@
+openapi: 3.0.3
+
+info:
+    title: Lyncora Backend API
+    version: 1.0.0
+    description: Backend API for authentication, accounts, follows, posts, comments, and chats.
+
+servers:
+    - url: http://localhost:4002/api
+      description: Local API base
+
+tags:
+    - name: Auth
+      description: Authentication and password flows.
+    - name: Account
+      description: Profile, privacy, settings, avatar, bio, theme, and search.
+    - name: Follow
+      description: Follow requests, followers/followings management.
+    - name: Post
+      description: Post CRUD, image upload, and likes.
+    - name: Comment
+      description: Comments and comment reactions on posts.
+    - name: Chats
+      description: Direct messages, chats, messages, and read status.
+
+security:
+    - bearerAuth: []
+
+components:
+    securitySchemes:
+        bearerAuth:
+            type: http
+            scheme: bearer
+            bearerFormat: JWT
+
+    schemas:
+        MessageResponse:
+            type: object
+            properties:
+                message:
+                    type: string
+                    example: OK
+            required: [message]
+
+        ErrorResponse:
+            type: object
+            properties:
+                message:
+                    type: string
+                    example: Missing/Invalid credentials...
+            required: [message]
+
+        UserSafe:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    example: 113
+                firstName:
+                    type: string
+                    example: Hovsep
+                lastName:
+                    type: string
+                    example: Avagyan
+                username:
+                    type: string
+                    example: avagyanhovsep
+                email:
+                    type: string
+                    format: email
+                    example: hovsep@example.com
+                avatar:
+                    type: string
+                    example: "1735075012345.png"
+                bio:
+                    type: string
+                    example: ""
+                theme:
+                    type: string
+                    enum: [system, light, dark]
+                    example: system
+                isAccountPrivate:
+                    type: boolean
+                    example: false
+                isSigninAllowed:
+                    type: boolean
+                    example: true
+            required: [id, username, email, theme]
+
+    responses:
+        Unauthorized:
+            description: Unauthorized (missing or invalid token)
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                    examples:
+                        unauthorized:
+                            value: { message: "Unauthorized" }
+
+        Forbidden:
+            description: Forbidden
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                    examples:
+                        forbidden:
+                            value: { message: "Forbidden" }
+
+        NotFound:
+            description: Resource not found
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                    examples:
+                        notFound:
+                            value: { message: "Not found" }
+
+        InternalServerError:
+            description: Internal server error
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                    examples:
+                        serverError:
+                            value: { message: "Internal Server Error" }
+
+paths:
+    # ---------- AUTH ----------
+    /auth/user:
+        $ref: ../src/auth/auth.docs.yaml#/paths/~1auth~1user
+    /auth/signup:
+        $ref: ../src/auth/auth.docs.yaml#/paths/~1auth~1signup
+    /auth/signin:
+        $ref: ../src/auth/auth.docs.yaml#/paths/~1auth~1signin
+
+    # ---------- ACCOUNT ----------
+    /account/privacy:
+        $ref: ../src/account/account.docs.yaml#/paths/~1account~1privacy
+    /account/settings/password:
+        $ref: ../src/account/account.docs.yaml#/paths/~1account~1settings~1password
+    /account/avatar:
+        $ref: ../src/account/account.docs.yaml#/paths/~1account~1avatar
+    /account/search/{text}:
+        $ref: ../src/account/account.docs.yaml#/paths/~1account~1search~1{text}
+    /account/{username}:
+        $ref: ../src/account/account.docs.yaml#/paths/~1account~1{username}
+    /account/bio:
+        $ref: ../src/account/account.docs.yaml#/paths/~1account~1bio
+    /account/theme:
+        $ref: ../src/account/account.docs.yaml#/paths/~1account~1theme
+
+    # ---------- FOLLOW ----------
+    /follow/requests:
+        $ref: ../src/follow/follow.docs.yaml#/paths/~1follow~1requests
+    /follow/requests/accept/{id}:
+        $ref: ../src/follow/follow.docs.yaml#/paths/~1follow~1requests~1accept~1{id}
+    /follow/requests/decline/{id}:
+        $ref: ../src/follow/follow.docs.yaml#/paths/~1follow~1requests~1decline~1{id}
+    /follow/{id}:
+        $ref: ../src/follow/follow.docs.yaml#/paths/~1follow~1{id}
+
+    # ---------- POSTS ----------
+    /posts:
+        $ref: ../src/post/post.docs.yaml#/paths/~1posts
+    /posts/{postId}:
+        $ref: ../src/post/post.docs.yaml#/paths/~1posts~1{postId}
+    /posts/{postId}/likes:
+        $ref: ../src/post/post.docs.yaml#/paths/~1posts~1{postId}~1likes
+
+    # ---------- COMMENTS (nested) ----------
+    /posts/{postId}/comments:
+        $ref: ../src/comment/comment.docs.yaml#/paths/~1post~1{postId}~1comments
+    /posts/{postId}/comments/{commentId}:
+        $ref: ../src/comment/comment.docs.yaml#/paths/~1post~1{postId}~1comments~1{commentId}
+    /posts/{postId}/comments/{commentId}/reactions:
+        $ref: ../src/comment/comment.docs.yaml#/paths/~1post~1{postId}~1comments~1{commentId}~1reactions
+
+    # ---------- CHATS ----------
+    /chats:
+        $ref: ../src/chat/chat.docs.yaml#/paths/~1chats
+    /chats/dm:
+        $ref: ../src/chat/chat.docs.yaml#/paths/~1chats~1dm
+    /chats/{chatId}/messages:
+        $ref: ../src/chat/chat.docs.yaml#/paths/~1chats~1{chatId}~1messages
+    /chats/{chatId}/read:
+        $ref: ../src/chat/chat.docs.yaml#/paths/~1chats~1{chatId}~1read

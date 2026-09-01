@@ -1,0 +1,375 @@
+paths:
+    /chats:
+        get:
+            tags: [Chat]
+            summary: Load my chats
+            description: Returns all chats for the authenticated user, including members (with SAFE_USER fields) and the last message (latest).
+            security:
+                - bearerAuth: []
+            responses:
+                "200":
+                    description: Chats returned
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    chats:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/Chat"
+                                required: [chats]
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+
+    /chats/dm:
+        post:
+            tags: [Chat]
+            summary: Create or load a DM chat with a partner
+            description: Finds an existing 1:1 chat between the authenticated user and partner; otherwise creates a new one and returns it.
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/CreateDMRequest"
+            responses:
+                "200":
+                    description: Chat loaded/created
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    chat:
+                                        $ref: "#/components/schemas/Chat"
+                                required: [chat]
+                "400":
+                    description: Missing/invalid partnerId, or attempting to DM yourself
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    description: Partner account is private and messaging is not allowed (must follow/approved)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /chats/{chatId}/messages:
+        get:
+            tags: [Chat]
+            summary: Get messages for a chat
+            security:
+                - bearerAuth: []
+            parameters:
+                - $ref: "#/components/parameters/ChatIdParam"
+            responses:
+                "200":
+                    description: Messages returned
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    messages:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/Message"
+                                required: [messages]
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    description: Not a member of this chat
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+        post:
+            tags: [Chat]
+            summary: Send a message in a chat
+            description: Creates a new message in the chat. May be blocked if the partner deleted their account or privacy rules disallow messaging.
+            security:
+                - bearerAuth: []
+            parameters:
+                - $ref: "#/components/parameters/ChatIdParam"
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/SendMessageRequest"
+            responses:
+                "201":
+                    description: Message created
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        $ref: "#/components/schemas/Message"
+                                required: [message]
+                "400":
+                    description: Missing/invalid text
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    description: Not a member, or messaging not allowed due to private-account rules
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "410":
+                    description: Partner deleted their account; you cannot send new messages
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /chats/{chatId}/read:
+        post:
+            tags: [Chat]
+            summary: Mark chat as read
+            description: Updates the member lastReadAt timestamp for the authenticated user in this chat.
+            security:
+                - bearerAuth: []
+            parameters:
+                - $ref: "#/components/parameters/ChatIdParam"
+            responses:
+                "200":
+                    description: Chat marked as read
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                ok:
+                                    value:
+                                        message: "Message read!"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    description: Not a member of this chat
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /chats/{chatId}/messages/{messageId}:
+        delete:
+            tags: [Chat]
+            summary: Unsend (delete) one of my messages
+            description: Soft-deletes the message (paranoid). Only the sender can unsend their message.
+            security:
+                - bearerAuth: []
+            parameters:
+                - $ref: "#/components/parameters/ChatIdParam"
+                - $ref: "#/components/parameters/MessageIdParam"
+            responses:
+                "200":
+                    description: Message deleted
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    messageId:
+                                        type: integer
+                                        example: 123
+                                required: [messageId]
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    description: Not a member, or you can unsend only your own messages
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                "404":
+                    description: Message not found in this chat
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+    /chats/{chatId}:
+        delete:
+            tags: [Chat]
+            summary: Delete conversation for me
+            description: Removes the authenticated user from the chat (deletes Member row). If the last member leaves, chat is auto-deleted by hook.
+            security:
+                - bearerAuth: []
+            parameters:
+                - $ref: "#/components/parameters/ChatIdParam"
+            responses:
+                "200":
+                    description: Conversation deleted for user
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                ok:
+                                    value:
+                                        message: "Conversation deleted"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    description: Not a member of this chat
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+    responses:
+        Unauthorized:
+            description: Missing or invalid authentication token
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                    examples:
+                        unauthorized:
+                            value:
+                                message: "Unauthorized"
+
+        Forbidden:
+            description: Authenticated but not allowed to access this resource
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                    examples:
+                        forbidden:
+                            value:
+                                message: "Forbidden"
+
+    parameters:
+        ChatIdParam:
+            name: chatId
+            in: path
+            required: true
+            schema:
+                type: integer
+                example: 1
+
+        MessageIdParam:
+            name: messageId
+            in: path
+            required: true
+            schema:
+                type: integer
+                example: 55
+
+    schemas:
+        CreateDMRequest:
+            type: object
+            properties:
+                partnerId:
+                    type: integer
+                    example: 200
+            required: [partnerId]
+
+        SendMessageRequest:
+            type: object
+            properties:
+                text:
+                    type: string
+                    example: "Hey, are you free today?"
+            required: [text]
+
+        MessageResponse:
+            type: object
+            properties:
+                message:
+                    type: string
+            required: [message]
+
+        ErrorResponse:
+            type: object
+            properties:
+                message:
+                    type: string
+            required: [message]
+
+        UserSafe:
+            type: object
+            description: Safe user profile fields (SAFE_USER + deletedAt)
+            properties:
+                id:
+                    type: integer
+                username:
+                    type: string
+                avatar:
+                    type: string
+                    nullable: true
+                deletedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+            required: [id]
+
+        ChatMember:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                lastReadAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                user:
+                    $ref: "#/components/schemas/UserSafe"
+            required: [userId, user]
+
+        Message:
+            type: object
+            properties:
+                id:
+                    type: integer
+                chatId:
+                    type: integer
+                userId:
+                    type: integer
+                text:
+                    type: string
+                createdAt:
+                    type: string
+                    format: date-time
+                deletedAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                sender:
+                    $ref: "#/components/schemas/UserSafe"
+            required: [id, chatId, userId, text, createdAt, sender]
+
+        Chat:
+            type: object
+            properties:
+                id:
+                    type: integer
+                members:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/ChatMember"
+                messages:
+                    type: array
+                    description: In your queries you usually return only the latest message (limit 1) for chat preview.
+                    items:
+                        $ref: "#/components/schemas/Message"
+            required: [id, members]

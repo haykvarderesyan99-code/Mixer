@@ -1,0 +1,316 @@
+paths:
+    /post/{postId}/comments:
+        get:
+            tags: [Comment]
+            summary: Get all comments for a post
+            description: Returns comments for a post. Each comment includes its user and reactions (reactions do not include user in current service).
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: postId
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+                      example: 45
+            responses:
+                "200":
+                    description: Comments returned
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    comments:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/Comment"
+                                required: [comments]
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+
+        post:
+            tags: [Comment]
+            summary: Add a comment to a post
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: postId
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+                      example: 45
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/CreateCommentRequest"
+            responses:
+                "201":
+                    description: Comment created
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    comment:
+                                        $ref: "#/components/schemas/CommentWithUser"
+                                required: [comment]
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+
+    /post/{postId}/comments/{commentId}:
+        delete:
+            tags: [Comment]
+            summary: Delete a comment
+            description: Only the comment owner can delete it.
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: postId
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+                      example: 45
+                - name: commentId
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+                      example: 501
+            responses:
+                "200":
+                    description: Comment deleted
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                ok:
+                                    value:
+                                        {
+                                            message: "Comment deleted successfully!",
+                                        }
+                "403":
+                    description: Forbidden (not the author)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                            examples:
+                                forbidden:
+                                    value: { message: "Forbidden" }
+                "404":
+                    description: Comment not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                            examples:
+                                notFound:
+                                    value: { message: "Comment not found..." }
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+
+    /post/{postId}/comments/{commentId}/reactions:
+        post:
+            tags: [Comment]
+            summary: React to a comment (toggle)
+            description: |
+                Toggles reaction.
+                - If already reacted => deletes reaction and returns `{ commentReactionStatus: false }` (200)
+                - If not reacted => creates reaction and returns `{ commentReactionStatus: true, commentReaction }` (201)
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: postId
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+                      example: 45
+                - name: commentId
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+                      example: 501
+            responses:
+                "200":
+                    description: Reaction removed
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/UnreactResponse"
+                            examples:
+                                unreacted:
+                                    value: { commentReactionStatus: false }
+                "201":
+                    description: Reaction created
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ReactResponse"
+                            examples:
+                                reacted:
+                                    value:
+                                        commentReactionStatus: true
+                                        commentReaction:
+                                            id: 33
+                                            userId: 113
+                                            commentId: 501
+                                            user:
+                                                id: 113
+                                                username: avagyanhovsep
+                                                email: hovsep@example.com
+                                                theme: system
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+
+        get:
+            tags: [Comment]
+            summary: Get all reactions for a comment (not implemented)
+            description: This endpoint exists in the router but the controller method is empty in current code.
+            security:
+                - bearerAuth: []
+            parameters:
+                - name: postId
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+                      example: 45
+                - name: commentId
+                  in: path
+                  required: true
+                  schema:
+                      type: integer
+                      example: 501
+            responses:
+                "501":
+                    description: Not implemented
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ErrorResponse"
+                            examples:
+                                notImplemented:
+                                    value: { message: "Not implemented" }
+
+components:
+    schemas:
+        MessageResponse:
+            type: object
+            properties:
+                message:
+                    type: string
+            required: [message]
+
+        ErrorResponse:
+            type: object
+            properties:
+                message:
+                    type: string
+            required: [message]
+
+        CreateCommentRequest:
+            type: object
+            properties:
+                text:
+                    type: string
+                    example: "Nice post!"
+            required: [text]
+
+        # SAFE_USER (adjust if SAFE_USER differs)
+        UserSafe:
+            type: object
+            properties:
+                id: { type: integer, example: 113 }
+                firstName: { type: string, example: Hovsep }
+                lastName: { type: string, example: Avagyan }
+                username: { type: string, example: avagyanhovsep }
+                email:
+                    { type: string, format: email, example: hovsep@example.com }
+                avatar: { type: string, example: "1735075012345.png" }
+                bio: { type: string, example: "" }
+                theme:
+                    type: string
+                    enum: [system, light, dark]
+                    example: system
+                isAccountPrivate: { type: boolean, example: false }
+                isSigninAllowed: { type: boolean, example: true }
+            required: [id, username, email, theme]
+
+        CommentReaction:
+            type: object
+            properties:
+                id: { type: integer, example: 33 }
+                userId: { type: integer, example: 113 }
+                commentId: { type: integer, example: 501 }
+            required: [id, userId, commentId]
+
+        CommentReactionWithUser:
+            type: object
+            properties:
+                id: { type: integer, example: 33 }
+                userId: { type: integer, example: 113 }
+                commentId: { type: integer, example: 501 }
+                user:
+                    $ref: "#/components/schemas/UserSafe"
+            required: [id, userId, commentId, user]
+
+        Comment:
+            type: object
+            properties:
+                id: { type: integer, example: 501 }
+                text: { type: string, example: "Nice post!" }
+                userId: { type: integer, example: 113 }
+                postId: { type: integer, example: 45 }
+                user:
+                    $ref: "#/components/schemas/UserSafe"
+                reactions:
+                    type: array
+                    description: CommentReaction records (no user include in current service)
+                    items:
+                        $ref: "#/components/schemas/CommentReaction"
+            required: [id, text, userId, postId]
+
+        CommentWithUser:
+            allOf:
+                - $ref: "#/components/schemas/Comment"
+                - type: object
+                  properties:
+                      user:
+                          $ref: "#/components/schemas/UserSafe"
+
+        ReactResponse:
+            type: object
+            properties:
+                commentReactionStatus:
+                    type: boolean
+                    example: true
+                commentReaction:
+                    $ref: "#/components/schemas/CommentReactionWithUser"
+            required: [commentReactionStatus, commentReaction]
+
+        UnreactResponse:
+            type: object
+            properties:
+                commentReactionStatus:
+                    type: boolean
+                    example: false
+            required: [commentReactionStatus]
+
+    responses:
+        Unauthorized:
+            description: Unauthorized (missing or invalid token)
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/ErrorResponse"
+                    examples:
+                        unauthorized:
+                            value: { message: "Unauthorized" }

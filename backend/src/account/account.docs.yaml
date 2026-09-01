@@ -1,0 +1,456 @@
+paths:
+    /account/privacy:
+        patch:
+            tags: [Account]
+            summary: Toggle account privacy
+            description: Toggles the authenticated user's privacy flag (public/private).
+            security:
+                - bearerAuth: []
+            responses:
+                "200":
+                    description: Privacy updated
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    isAccountPrivate:
+                                        type: integer
+                                        description: 1 = private, 0 = public
+                                        example: 1
+                                required: [isAccountPrivate]
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+    /account/settings/password:
+        patch:
+            tags: [Account]
+            summary: Change account password
+            description: Changes the authenticated user's password after validating the current password.
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                currentPassword:
+                                    type: string
+                                    example: "MyCurrentPassword123!"
+                                newPassword:
+                                    type: string
+                                    example: "MyNewPassword123!"
+                            required: [currentPassword, newPassword]
+            responses:
+                "200":
+                    description: Password changed
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                success:
+                                    value:
+                                        message: "Your password has been changed successfully"
+                "400":
+                    description: Validation error (missing fields, wrong current password, new password equals old, etc.)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                missing:
+                                    value:
+                                        message: "Missing/Invalid credentials..."
+                                wrong_current:
+                                    value:
+                                        message: "Your current password is incorrect, try another or reset if you forgot"
+                                same_password:
+                                    value:
+                                        message: "You have used this password previously, try another"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+    /account/avatar:
+        patch:
+            tags: [Account]
+            summary: Upload / update avatar
+            description: Uploads a new profile picture for the authenticated user. Expects multipart form upload under field name `profile-pic`.
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            properties:
+                                profile-pic:
+                                    type: string
+                                    format: binary
+                            required: [profile-pic]
+            responses:
+                "200":
+                    description: Avatar updated
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    picture:
+                                        type: string
+                                        description: Filename stored on server
+                                        example: "1735321123456-avatar.png"
+                                required: [picture]
+                "400":
+                    description: Bad request (file missing / invalid)
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+    /account/bio:
+        patch:
+            tags: [Account]
+            summary: Update bio
+            description: Updates the authenticated user's bio (max length 150).
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                bio:
+                                    type: string
+                                    maxLength: 150
+                                    example: "Building Lyncora and learning Node.js."
+                            required: [bio]
+            responses:
+                "200":
+                    description: Bio updated
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    bio:
+                                        type: string
+                                    message:
+                                        type: string
+                                required: [bio, message]
+                            examples:
+                                success:
+                                    value:
+                                        bio: "Building Lyncora and learning Node.js."
+                                        message: "Bio updated successfully!"
+                "400":
+                    description: Bio too long
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                too_long:
+                                    value:
+                                        message: "Bio too long"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+    /account/theme:
+        patch:
+            tags: [Account]
+            summary: Update theme
+            description: Updates the authenticated user's theme setting.
+            security:
+                - bearerAuth: []
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                theme:
+                                    type: string
+                                    description: Theme value saved on the user record (you define allowed values).
+                                    example: "dark"
+                            required: [theme]
+            responses:
+                "200":
+                    description: Theme updated
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    theme:
+                                        type: string
+                                required: [theme]
+                            examples:
+                                success:
+                                    value:
+                                        theme: "dark"
+                "400":
+                    description: Invalid theme payload
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+    /account:
+        delete:
+            tags: [Account]
+            summary: Delete account
+            description: Deletes the authenticated user's account (transactional). Cleans up related chats. Sends a deletion confirmation email if the user had an email.
+            security:
+                - bearerAuth: []
+            responses:
+                "200":
+                    description: Account deleted
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                success:
+                                    value:
+                                        message: "Account deleted"
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "404":
+                    description: User not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                            examples:
+                                not_found:
+                                    value:
+                                        message: "User not found"
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+    /account/search/{text}:
+        get:
+            tags: [Account]
+            summary: Search users
+            description: Returns a list of users whose firstName starts with the provided text.
+            security:
+                - bearerAuth: []
+            parameters:
+                - in: path
+                  name: text
+                  required: true
+                  schema:
+                      type: string
+                  example: "Ho"
+            responses:
+                "200":
+                    description: Users returned
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    users:
+                                        type: array
+                                        items:
+                                            $ref: "#/components/schemas/UserSafe"
+                                required: [users]
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+    /account/{username}:
+        get:
+            tags: [Account]
+            summary: Get user info by username
+            description: Returns a user profile by username. Includes followings, followers and posts (per your service include).
+            security:
+                - bearerAuth: []
+            parameters:
+                - in: path
+                  name: username
+                  required: true
+                  schema:
+                      type: string
+                  example: "avagyanhovsep"
+            responses:
+                "200":
+                    description: User returned
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    user:
+                                        $ref: "#/components/schemas/UserProfile"
+                                required: [user]
+                "401":
+                    $ref: "#/components/responses/Unauthorized"
+                "403":
+                    $ref: "#/components/responses/Forbidden"
+                "404":
+                    description: User not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/MessageResponse"
+                "500":
+                    $ref: "#/components/responses/InternalServerError"
+
+components:
+    schemas:
+        MessageResponse:
+            type: object
+            properties:
+                message:
+                    type: string
+            required: [message]
+
+        UserSafe:
+            type: object
+            description: Safe user fields (based on SAFE_USER constant in your codebase).
+            properties:
+                id:
+                    type: integer
+                    example: 113
+                username:
+                    type: string
+                    example: "avagyanhovsep"
+                firstName:
+                    type: string
+                    example: "Hovsep"
+                lastName:
+                    type: string
+                    example: "Avagyan"
+                avatar:
+                    type: string
+                    nullable: true
+                    example: "1735321123456-avatar.png"
+                bio:
+                    type: string
+                    nullable: true
+                    example: "Building Lyncora."
+                theme:
+                    type: string
+                    nullable: true
+                    example: "dark"
+                isAccountPrivate:
+                    type: integer
+                    example: 0
+
+        FollowEdge:
+            type: object
+            properties:
+                id:
+                    type: integer
+                senderId:
+                    type: integer
+                receiverId:
+                    type: integer
+                sender:
+                    $ref: "#/components/schemas/UserSafe"
+                receiver:
+                    $ref: "#/components/schemas/UserSafe"
+
+        UserProfile:
+            allOf:
+                - $ref: "#/components/schemas/UserSafe"
+                - type: object
+                  properties:
+                      followings:
+                          type: array
+                          items:
+                              type: object
+                              properties:
+                                  receiver:
+                                      $ref: "#/components/schemas/UserSafe"
+                      followers:
+                          type: array
+                          items:
+                              type: object
+                              properties:
+                                  sender:
+                                      $ref: "#/components/schemas/UserSafe"
+                      posts:
+                          type: array
+                          items:
+                              type: object
+                              description: Post schema reference placeholder (replace with your actual Post schema if you have one).
+                              properties:
+                                  id:
+                                      type: integer
+                                  text:
+                                      type: string
+                                  createdAt:
+                                      type: string
+                                      format: date-time
+
+    responses:
+        Unauthorized:
+            description: Missing/invalid auth token
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/MessageResponse"
+                    examples:
+                        unauthorized:
+                            value:
+                                message: "Unauthorized"
+
+        Forbidden:
+            description: Authenticated but not allowed
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/MessageResponse"
+                    examples:
+                        forbidden:
+                            value:
+                                message: "Forbidden"
+
+        InternalServerError:
+            description: Server error
+            content:
+                application/json:
+                    schema:
+                        $ref: "#/components/schemas/MessageResponse"
+                    examples:
+                        error:
+                            value:
+                                message: "Internal server error"
