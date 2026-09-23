@@ -1,6 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { clearToken } from "./api";
 import BrandMark from "./components/BrandMark";
 import { useAuth } from "./lib/auth-context";
 
@@ -17,7 +16,7 @@ const navItems = [
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut, configured, loading, user } = useAuth();
+  const { signOut, loading, user } = useAuth();
   const [createMenuOpen, setCreateMenuOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const [search, setSearch] = useState("");
@@ -29,8 +28,8 @@ export default function Layout() {
   }, [theme]);
 
   useEffect(() => {
-    if (configured && !loading && !user) navigate("/login", { replace: true });
-  }, [configured, loading, navigate, user]);
+    if (!loading && !user) navigate("/login", { replace: true });
+  }, [loading, navigate, user]);
 
   const title = useMemo(() => {
     if (location.pathname.includes("/profile")) return "Profile";
@@ -42,10 +41,8 @@ export default function Layout() {
     return "Mixer Home";
   }, [location.pathname]);
 
-  const handleLogout = () => {
-    clearToken();
-    window.localStorage.removeItem("skychat-state-v1");
-    if (configured) void signOut();
+  const handleLogout = async () => {
+    await signOut();
     navigate("/login");
   };
 
@@ -148,7 +145,7 @@ export default function Layout() {
               >
                 {theme === "dark" ? "Light mode" : "Dark mode"}
               </button>
-              <button type="button" className="rounded-full border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-slate-300" onClick={handleLogout}>
+              <button type="button" className="rounded-full border border-slate-700 bg-slate-800/80 px-3 py-2 text-sm text-slate-300" onClick={() => void handleLogout()}>
                 Logout
               </button>
             </div>

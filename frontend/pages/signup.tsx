@@ -48,8 +48,20 @@ export default function Signup() {
     }
 
     try {
-      await handleSignup(data);
-      navigate("/login");
+      const { error, data: signupData } = await handleSignup(data);
+      if (error) {
+        setSubmitError(
+          error.message.toLowerCase().includes("already registered")
+            ? "An account with this email already exists. Try signing in."
+            : error.message,
+        );
+        return;
+      }
+      if (signupData.session) {
+        navigate("/");
+        return;
+      }
+      setSubmitError("Account created. Check your email for a confirmation link, then sign in.");
     } catch {
       setSubmitError("Registration failed. Please try again.");
     }

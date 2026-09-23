@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 import { handleLogin } from "../src/api";
+import { useAuth } from "../src/lib/auth-context";
 
 type LoginFormValues = {
   username: string;
@@ -10,6 +11,7 @@ type LoginFormValues = {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { configured } = useAuth();
   const [submitError, setSubmitError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
@@ -29,7 +31,15 @@ export default function Login() {
     setSuccessMessage("");
 
     try {
-      await handleLogin(data);
+      const { error } = await handleLogin(data);
+      if (error) {
+        setSubmitError(
+          error.message === "Invalid login credentials"
+            ? "Wrong email or password. Please try again."
+            : error.message,
+        );
+        return;
+      }
       setSuccessMessage("Login successful");
       navigate("/");
     } catch {
@@ -48,6 +58,12 @@ export default function Login() {
           </div>
         </div>
         <p className="mt-4 text-sm text-slate-400">Sign in to access your premium social network and connected communities.</p>
+
+        {!configured ? (
+          <div role="alert" className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            Supabase is not configured. Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_PUBLISHABLE_KEY</code> in <code>frontend/.env.local</code>, then restart the dev server.
+          </div>
+        ) : null}
 
         <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-4">
           <div>

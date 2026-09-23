@@ -3,6 +3,8 @@ import ContactButton from "../src/components/ContactButton";
 import ProfileCard from "../src/components/ProfileCard";
 import type { ProfileData } from "../src/types";
 import { supabase, supabaseConfigured } from "../src/lib/supabase";
+import { ensureProfile } from "../src/lib/profiles";
+import type { Profile } from "../src/types/database";
 import { useAuth } from "../src/lib/auth-context";
 
 const PROFILE_STORAGE_KEY = "mixer-profile-v1";
@@ -62,11 +64,21 @@ export default function ProfilePage() {
         if (mounted) { setProfileError("We could not load your Mixer profile. Please try again."); setProfileLoading(false); }
         return;
       }
-      if (!result.data || !mounted) {
-        if (mounted) { console.error("Supabase profile row missing", { userId: authUserId }); setProfileError("Your profile row was not found for this account."); setProfileLoading(false); }
+      let data = result.data as Profile | null;
+      if (!data) {
+        const meta = authData.user.user_metadata as { username?: string; display_name?: string } | null;
+        try {
+          data = await ensureProfile(authUserId, { username: meta?.username ?? null, displayName: meta?.display_name ?? null });
+        } catch (bootstrapError) {
+          console.error("Supabase profile bootstrap failed", { userId: authUserId, error: bootstrapError });
+          if (mounted) { setProfileError("We could not create your Mixer profile. Please try again."); setProfileLoading(false); }
+          return;
+        }
+      }
+      if (!data || !mounted) {
+        setProfileLoading(false);
         return;
       }
-      const data = result.data;
       setAvatarPath(data.avatar_url);
       let avatar = data.avatar_url;
       if (avatar) {

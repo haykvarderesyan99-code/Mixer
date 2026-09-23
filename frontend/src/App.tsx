@@ -1,6 +1,6 @@
 import { startTransition, useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { clearToken, getChats, getCurrentUser, hasToken } from "./api";
+import { useAuth } from "./lib/auth-context";
 import AIAssistantPanel from "./components/AIAssistantPanel";
 import ChatWindow from "./components/ChatWindow";
 import ContactButton from "./components/ContactButton";
@@ -26,12 +26,6 @@ type Contact = {
   version?: string;
   typing?: boolean;
   messages: Array<{ id: string; text: string; isMine: boolean; gifUrl?: string; mediaUrl?: string; mediaType?: "image" | "video" }>;
-};
-
-type BackendChat = {
-  id: number;
-  members?: Array<{ user?: { id?: number; username?: string; firstName?: string; lastName?: string } }>;
-  messages?: Array<{ id: number; text: string; userId: number; sender?: { username?: string } }>;
 };
 
 type PostComment = { id: string; user: string; text: string };
@@ -196,6 +190,7 @@ const initialState = (): WorkspaceState => {
 };
 
 export default function App() {
+  const { user } = useAuth();
   const [state, setState] = useState<WorkspaceState>(initialState);
   const [posts, setPosts] = useState<Post[]>(() => {
     try {
@@ -230,6 +225,10 @@ export default function App() {
       return [];
     }
   });
+  // Phase 1: identity comes from Supabase. The legacy Express user/chat fetch
+  // was removed; chat data wiring moves to Supabase Realtime in Phase 2.
+  const authDisplayName = (user?.user_metadata?.display_name ?? user?.user_metadata?.username ?? null) as string | null;
+  const username = authDisplayName ?? state.username;
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -257,39 +256,6 @@ export default function App() {
       startTransition(() => setState((prev) => ({ ...prev, createMode: null })));
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    if (!hasToken()) return;
-
-    getCurrentUser()
-      .then((user) => setState((prev) => ({ ...prev, username: user.username })))
-      .catch(() => clearToken());
-
-    getChats()
-      .then((chats: BackendChat[]) => {
-        const mapped = chats.map((chat, index) => {
-          const otherMember = chat.members?.find((member) => member.user?.id !== undefined);
-          const otherUser = otherMember?.user;
-          const latestMessage = chat.messages?.[0];
-          return {
-            id: `chat-${chat.id}`,
-            name: otherUser ? `${otherUser.firstName || "Friend"} ${otherUser.lastName || ""}`.trim() : `Chat ${index + 1}`,
-            role: otherUser?.username ? `@${otherUser.username}` : "Connected",
-            style: index % 2 === 0 ? "Telegram" : "WhatsApp" as ChatStyle,
-            online: true,
-            blocked: false,
-            messages: latestMessage
-              ? [{ id: `${latestMessage.id}`, text: latestMessage.text, isMine: latestMessage.userId === 0 }]
-              : [],
-          } as Contact;
-        });
-
-        if (mapped.length) {
-          setState((prev) => ({ ...prev, contacts: mapped, selectedContactId: mapped[0].id }));
-        }
-      })
-      .catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     const handleFocus = () => {
@@ -530,7 +496,7 @@ export default function App() {
 
     const post: Post = {
       id: `post-${Date.now()}`,
-      author: state.username ?? "Mixer Creator",
+      author: username ?? "Mixer Creator",
       handle: "@mixer",
       content: newPost.trim(),
       media: mediaPreview || undefined,
@@ -550,7 +516,7 @@ export default function App() {
   const handleCreateStory = () => {
     const text = newStory.trim();
     if (!text) return;
-    setStories((prev) => [{ id: `story-${Date.now()}`, author: state.username ?? "You", text, style: storyStyle }, ...prev]);
+    setStories((prev) => [{ id: `story-${Date.now()}`, author: username ?? "You", text, style: storyStyle }, ...prev]);
     setNewStory("");
     setState((prev) => ({ ...prev, savedNotice: "Story shared" }));
   };
@@ -619,7 +585,7 @@ export default function App() {
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-2 text-sm text-slate-300">
-          <span className="rounded-full bg-emerald-500/12 px-3 py-1 text-emerald-300">{state.username ? `Connected as ${state.username}` : "Local demo mode"}</span>
+          <span className="rounded-full bg-emerald-500/12 px-3 py-1 text-emerald-300">{username ? `Connected as ${username}` : "Local demo mode"}</span>
           <span className="rounded-full border border-slate-700 px-3 py-1">{state.savedNotice || "Everything saves locally"}</span>
         </div>
       </section>

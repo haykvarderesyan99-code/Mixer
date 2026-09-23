@@ -73,3 +73,33 @@ export default defineConfig([
 ])
 
 ```
+
+## Supabase setup (Phase 1 — required)
+
+Auth, profiles, and avatar storage run on Supabase.
+
+1. Copy env template and fill in your keys (values from **Supabase Dashboard → Project Settings → API**):
+
+   ```sh
+   cd frontend
+   cp .env.example .env.local
+   ```
+
+   Then set in `.env.local`:
+
+   - `VITE_SUPABASE_URL` — Project URL
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` — publishable (anon) key
+
+2. Apply the foundation migration (tables + RLS + triggers) in **Supabase Dashboard → SQL Editor**:
+
+   ```sql
+   -- paste the contents of supabase/migrations/0001_foundation.sql and run it
+   ```
+
+   It creates the `profiles` table, an `on_auth_user_created` trigger that auto-creates
+   a profile row for every new signup, RLS policies (read all authenticated, write own
+   row only), and the private `avatars` storage bucket with per-user folder policies.
+
+3. Restart the dev server (`npm run dev`). If env vars are missing, the login page
+   shows a configuration warning instead of failing silently.
+
